@@ -13,26 +13,41 @@ struct Record {
     app: String,
     data_dir: PathBuf,
     commands: BTreeSet<PathBuf>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    shell_configs: Vec<ShellConfig>,
 }
 
-fn recorded_commands(root: &Path) -> Result<BTreeSet<PathBuf>> {
+#[derive(Clone, Serialize, Deserialize)]
+struct ShellConfig {
+    path: PathBuf,
+    block: String,
+    created: bool,
+}
+
+fn read_record(root: &Path) -> Result<Record> {
+    let empty = || Record {
+        app: "md2pdf".into(),
+        data_dir: root.into(),
+        commands: BTreeSet::new(),
+        shell_configs: Vec::new(),
+    };
     let marker = root.join(MARKER);
     if !marker.exists() {
-        return Ok(BTreeSet::new());
+        return Ok(empty());
     }
     let text = fs::read_to_string(marker)?;
     if text == "md2pdf installer\n" {
-        return Ok(BTreeSet::new());
+        return Ok(empty());
     }
     let record: Record = serde_json::from_str(&text).context("インストール記録を読み込めません")?;
     if record.app != "md2pdf" || record.data_dir != root {
         bail!("インストール記録と設置先が一致しません");
     }
-    Ok(record.commands)
+    Ok(record)
 }
 
 fn candidates(root: &Path) -> Result<BTreeSet<PathBuf>> {
-    let mut paths = recorded_commands(root)?;
+    let mut paths = read_record(root)?.commands;
     // Also discover commands from the original installer, before records existed.
     if let Some(path) = env::var_os("PATH") {
         paths.extend(env::split_paths(&path).map(|dir| dir.join("md2pdf")));
@@ -55,6 +70,7 @@ fn owned_command(path: &Path, executable: &Path) -> bool {
 /// only after browser setup and all validation have succeeded.
 pub fn record(command: &Path) -> Result<()> {
     let root = fs::canonicalize(crate::browser::data_dir()?)?;
+    let mut record = read_record(&root)?;
     let executable = root.join("md2pdf");
     let mut commands = candidates(&root)?;
     commands.retain(|path| owned_command(path, &executable));
@@ -62,21 +78,126 @@ pub fn record(command: &Path) -> Result<()> {
         bail!("コマンドの設置先が不正です");
     }
     commands.insert(command.into());
+    record.commands = commands;
+    println!("{}", serde_json::to_string_pretty(&record)?);
+    Ok(())
+}
+
+fn write_record(root: &Path, record: &Record) -> Result<()> {
+    use std::io::Write;
+    let mut staged = tempfile::NamedTempFile::new_in(root)?;
+    staged.write_all(serde_json::to_string_pretty(record)?.as_bytes())?;
+    staged.write_all(b"\n")?;
+    staged.persist(root.join(MARKER))?;
+    Ok(())
+}
+
+pub fn completion() -> Result<()> {
+    let executable = fs::canonicalize(env::current_exe()?)?;
+    let root = executable.parent().context("インストール先がありません")?;
+    if !root.join(MARKER).is_file() || !root.join("browser.json").is_file() {
+        bail!("補完はinstall.shによって自動設定されます。先にインストールしてください");
+    }
+    let config_dir = env::var_os("ZDOTDIR")
+        .or_else(|| env::var_os("HOME"))
+        .context("HOMEが設定されていません")?;
+    fs::create_dir_all(&config_dir)?;
+    let config_dir = fs::canonicalize(config_dir)?;
+    let mut config = config_dir.join(".zshrc");
+    if config.is_symlink() {
+        config = fs::canonicalize(config)?;
+    }
+    let created = !config.exists();
+    let text = if created {
+        String::new()
+    } else {
+        fs::read_to_string(&config)?
+    };
+    let script = root.join("completion.zsh");
+    let quoted_script = format!("'{}'", script.to_string_lossy().replace('\'', "'\\''"));
+    let block = format!(
+        "\n# >>> md2pdf completion >>>\nif [[ -r {quoted_script} ]]; then\n  if (( ! $+functions[compdef] )); then\n    autoload -Uz compinit\n    compinit\n  fi\n  source {quoted_script}\nfi\n# <<< md2pdf completion <<<\n"
+    );
+    let mut record = read_record(root)?;
+    // A managed block can be updated, but never replace an unrecorded block
+    // from a different installation in the same shell configuration.
+    let previous = record
+        .shell_configs
+        .iter()
+        .position(|entry| entry.path == config);
+    let updated = if let Some(index) = previous {
+        let previous = &record.shell_configs[index];
+        if !text.contains(&previous.block) && text.contains("# >>> md2pdf completion >>>") {
+            bail!(
+                "補完設定が編集されています。md2pdfの補完ブロックを確認してください: {}",
+                config.display()
+            );
+        }
+        if text.contains(&previous.block) {
+            text.replace(&previous.block, &block)
+        } else {
+            format!("{text}{block}")
+        }
+    } else {
+        if text.contains("# >>> md2pdf completion >>>") {
+            bail!("別のmd2pdfの補完設定があります: {}", config.display());
+        }
+        format!("{text}{block}")
+    };
+    let entry = ShellConfig {
+        path: config.clone(),
+        block,
+        created: previous.map_or(created, |i| record.shell_configs[i].created),
+    };
+    if let Some(index) = previous {
+        record.shell_configs[index] = entry;
+    } else {
+        record.shell_configs.push(entry);
+    }
+    // Record ownership before changing shell configuration, so a failed write
+    // can still be cleaned up by the uninstaller.
+    write_record(root, &record)?;
+    fs::write(&script, include_str!("../assets/completion.zsh"))?;
+    fs::write(&config, updated)?;
     println!(
-        "{}",
-        serde_json::to_string_pretty(&Record {
-            app: "md2pdf".into(),
-            data_dir: root,
-            commands
-        })?
+        "zsh補完を設定しました: {}（新しいターミナルで有効）",
+        config.display()
     );
     Ok(())
+}
+
+impl ShellConfig {
+    fn without_block(&self) -> Result<Option<String>> {
+        if !self.path.exists() {
+            return Ok(None);
+        }
+        let text = fs::read_to_string(&self.path)?;
+        if text.contains("# >>> md2pdf completion >>>") && !text.contains(&self.block) {
+            bail!(
+                "補完設定が編集されています。md2pdfの補完ブロックを確認してください: {}",
+                self.path.display()
+            );
+        }
+        Ok(Some(text.replace(&self.block, "")))
+    }
+
+    fn remove(&self) -> Result<()> {
+        if let Some(text) = self.without_block()? {
+            if self.created && text.is_empty() {
+                fs::remove_file(&self.path)?;
+            } else {
+                fs::write(&self.path, text)?;
+            }
+        }
+        Ok(())
+    }
 }
 
 struct Removal {
     root: PathBuf,
     commands: BTreeSet<PathBuf>,
     entries: Vec<PathBuf>,
+    shell_configs: Vec<ShellConfig>,
 }
 
 impl Removal {
@@ -114,6 +235,8 @@ impl Removal {
                         | "LICENSE"
                         | "THIRD_PARTY_NOTICES.md"
                         | ".md2pdf-install"
+                        | "completion.zsh"
+                        | "uninstall.sh"
                 )
             ) || name.to_string_lossy().starts_with(".install.")
             {
@@ -138,10 +261,19 @@ impl Removal {
             root: root.into(),
             commands,
             entries,
+            shell_configs: Vec::new(),
         })
     }
 
     fn execute(&self, dry_run: bool) -> Result<()> {
+        for config in &self.shell_configs {
+            config.without_block()?;
+            println!(
+                "補完設定の削除{}: {}（md2pdfの追加部分のみ）",
+                if dry_run { "予定" } else { "" },
+                config.path.display()
+            );
+        }
         for path in self.commands.iter().chain(self.entries.iter()) {
             println!(
                 "{}: {}",
@@ -151,6 +283,9 @@ impl Removal {
         }
         if dry_run {
             return Ok(());
+        }
+        for config in &self.shell_configs {
+            config.remove()?;
         }
         // Delete external command symlinks first, while their targets still exist.
         for command in &self.commands {
@@ -189,7 +324,8 @@ pub fn uninstall(dry_run: bool) -> Result<()> {
     let home = env::var_os("HOME")
         .map(PathBuf::from)
         .and_then(|p| fs::canonicalize(p).ok());
-    let removal = Removal::plan(root, &executable, candidates(root)?, home.as_deref())?;
+    let mut removal = Removal::plan(root, &executable, candidates(root)?, home.as_deref())?;
+    removal.shell_configs = read_record(root)?.shell_configs;
     removal.execute(dry_run)
 }
 
@@ -197,6 +333,27 @@ pub fn uninstall(dry_run: bool) -> Result<()> {
 mod tests {
     use super::*;
     use std::os::unix::fs::symlink;
+
+    #[test]
+    fn completion_cleanup_preserves_later_user_edits_and_rejects_modified_block() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        let path = dir.path().join(".zshrc");
+        let block =
+            "\n# >>> md2pdf completion >>>\nsource owned-script\n# <<< md2pdf completion <<<\n";
+        let config = ShellConfig {
+            path: path.clone(),
+            block: block.into(),
+            created: false,
+        };
+        fs::write(&path, format!("# before{block}# added later\n"))?;
+        config.remove()?;
+        assert_eq!(fs::read_to_string(&path)?, "# before# added later\n");
+        let edited = block.replace("owned-script", "user-edited-script");
+        fs::write(&path, &edited)?;
+        assert!(config.remove().is_err());
+        assert_eq!(fs::read_to_string(&path)?, edited);
+        Ok(())
+    }
 
     #[test]
     fn removes_all_owned_files_and_links_but_preserves_outputs_and_other_apps() -> Result<()> {
@@ -210,6 +367,7 @@ mod tests {
             "browser.json",
             MARKER,
             "THIRD_PARTY_NOTICES.md",
+            "uninstall.sh",
             "browser/old-version/cache",
             "tmp/crashed-run/page.html",
         ] {

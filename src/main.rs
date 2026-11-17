@@ -21,12 +21,9 @@ static ASSETS: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/assets");
 const USAGE: &str = "使い方:
   md2pdf <Markdownファイル> [別のファイル ...]
   md2pdf <Markdownファイル> -o <保存先.pdf>
-  md2pdf setup
-  md2pdf uninstall [--dry-run]
 
 元のMarkdownと同じ場所にPDFを保存します。同名PDFは上書きします。
 -o / --output は1ファイルの変換時に指定できます。
-初回は md2pdf setup で専用Chromiumを準備してください。
 --help / -h    ヘルプ
 --version / -V バージョン";
 
@@ -229,22 +226,32 @@ fn run() -> Result<()> {
         println!("md2pdf {}", env!("CARGO_PKG_VERSION"));
         return Ok(());
     }
+    if args
+        .first()
+        .is_some_and(|arg| arg == "__install-completion")
+    {
+        if args.len() != 1 {
+            bail!("インストールの引数が不正です");
+        }
+        return install::completion();
+    }
     if args.first().is_some_and(|arg| arg == "__install-record") {
         if args.len() != 2 {
             bail!("インストール記録の引数が不正です");
         }
         return install::record(Path::new(&args[1]));
     }
-    if args.first().is_some_and(|arg| arg == "uninstall") {
+    // Private entry points used by install.sh and uninstall.sh.
+    if args.first().is_some_and(|arg| arg == "__uninstall") {
         let dry_run = args.len() == 2 && args[1] == "--dry-run";
         if args.len() != 1 && !dry_run {
-            bail!("使い方: md2pdf uninstall [--dry-run]");
+            bail!("アンインストールの引数が不正です");
         }
         return install::uninstall(dry_run);
     }
-    if args.first().is_some_and(|arg| arg == "setup") {
+    if args.first().is_some_and(|arg| arg == "__install-browser") {
         if args.len() != 1 {
-            bail!("使い方: md2pdf setup");
+            bail!("インストールの引数が不正です");
         }
         return browser::setup();
     }

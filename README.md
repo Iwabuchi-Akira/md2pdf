@@ -39,6 +39,7 @@ Apple Silicon搭載Macであることを確認し、GitHub Releasesから本体�
 ~/.local/bin/md2pdf                 コマンド
 ~/.local/share/md2pdf/              本体・バージョン情報・ライセンス
 ~/.local/share/md2pdf/browser/      専用Chromium
+~/.local/share/md2pdf/uninstall.sh  アンインストーラー
 ```
 
 管理者権限は不要です。`~/.local/bin` がPATHにない場合は、シェルの設定ファイル
@@ -62,6 +63,12 @@ md2pdf notes/a.md notes/b.md
 md2pdf --help
 md2pdf --version
 ```
+
+zshではインストール時にTab補完を設定します。新しいターミナルを開くと、Markdownのファイル名、
+フォルダ、`-o` / `--output` のPDF保存先、オプションを補完できます。
+設定先は `${ZDOTDIR:-$HOME}/.zshrc` です。既存の設定を保持して、目印付きの補完ブロックを追加します。
+利用者が補完設定用のコマンドを実行する必要はありません。インストール後に新しいターミナルを開くだけで有効になります。
+インストーラーを再実行しても設定は重複しません。
 
 標準では入力と同じフォルダに、拡張子を `.pdf` に変えて保存します。同名のPDFは上書きします。
 入力のMarkdownと画像は変更しません。`-o` / `--output` は1ファイルのときだけ指定できます。
@@ -94,15 +101,22 @@ PDFの生成日時などの内部情報も変わるため、互換性はペー�
 特定バージョンは `./install.sh --version v0.1.0` のように指定します。
 専用Chromiumは必要なバージョンが準備済みなら再ダウンロードしません。
 
-コマンドからアンインストールできます。削除前に対象だけ確認することもできます。
+取得したリポジトリ内の `uninstall.sh` からアンインストールできます。
+削除前に対象だけ確認することもできます。
 
 ```sh
-md2pdf uninstall --dry-run
-md2pdf uninstall
+./uninstall.sh --dry-run
+./uninstall.sh
 ```
 
+`--prefix DIR` または `--data-dir DIR` には、インストール時と同じ設置先を指定してください。
+標準の設置先は `~/.local/share/md2pdf` です。
+リポジトリを削除した場合は `~/.local/share/md2pdf/uninstall.sh` を実行できます。
+インストール先のスクリプトは、カスタム設置先でも自分のあるフォルダを対象にします。
+
 設置したコマンド、本体、ライセンス・管理情報、専用Chromium（全バージョンとキャッシュ）、
-変換用の一時ファイルを削除します。カスタム設置先と、更新前に設置したコマンドの場所も記録して削除します。
+変換用の一時ファイル、補完スクリプト、アンインストーラー、zsh設定に追加した補完ブロックを削除します。
+カスタム設置先と、更新前に設置したコマンドの場所も記録して削除します。
 変換用一時ファイルは専用の設置先内で管理し、途中終了で残った分もアンインストールの対象にします。
 
 入力Markdown、生成したPDF、ダウンロードしたリポジトリや配布アーカイブは利用者のファイルとして残します。
@@ -121,6 +135,7 @@ cargo clippy --locked --all-targets -- -D warnings
 cargo build --release --locked --target aarch64-apple-darwin
 ./scripts/package-release.sh aarch64-apple-darwin
 ./scripts/test-uninstall.sh target/aarch64-apple-darwin/release/md2pdf
+python3 scripts/test-completion.py target/aarch64-apple-darwin/release/md2pdf
 ```
 
 初回のダウンロードから含めて手元の配布ファイルを試す場合：
@@ -137,10 +152,11 @@ cargo build --release --locked --target aarch64-apple-darwin
 
 本体を直接実行する場合は、`MD2PDF_DATA_DIR` で専用ブラウザの保存先を指定できます。
 `MD2PDF_BROWSER_PATH` は開発時だけ、既知のChromium実行ファイルを指定するための設定です。
+ブラウザの準備は上記の隔離インストールで行い、本体の直接実行時にも同じ保存先を指定します。
 
 ```sh
-MD2PDF_DATA_DIR="$PWD/tmp/dev-data" ./target/aarch64-apple-darwin/release/md2pdf setup
-MD2PDF_DATA_DIR="$PWD/tmp/dev-data" ./target/aarch64-apple-darwin/release/md2pdf memo.md
+MD2PDF_DATA_DIR="$PWD/tmp/local-install/share/md2pdf" \
+  ./target/aarch64-apple-darwin/release/md2pdf memo.md
 ```
 
 参考元との比較には、開発時のみNode.js、参考元の依存パッケージ、Popplerを使います。

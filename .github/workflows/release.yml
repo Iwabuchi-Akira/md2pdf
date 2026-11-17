@@ -34,11 +34,13 @@ jobs:
         run: cargo build --release --locked --target "$TARGET"
       - name: Test uninstall
         run: ./scripts/test-uninstall.sh "target/$TARGET/release/md2pdf"
+      - name: Test zsh completion
+        run: python3 scripts/test-completion.py "target/$TARGET/release/md2pdf"
       - name: Test real PDF conversion
         env:
           MD2PDF_DATA_DIR: ${{ runner.temp }}/md2pdf-browser
         run: |
-          ./target/$TARGET/release/md2pdf setup
+          ./target/$TARGET/release/md2pdf __install-browser
           node scripts/test-conversion.cjs "target/$TARGET/release/md2pdf"
       - name: Package
         run: ./scripts/package-release.sh "$TARGET"

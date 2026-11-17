@@ -16,7 +16,8 @@ stage=$(mktemp -d "${TMPDIR:-/tmp}/md2pdf-package.XXXXXX")
 trap 'rm -rf "$stage"' EXIT HUP INT TERM
 cp "$binary" "$stage/md2pdf"
 cp assets/browser.json "$stage/browser.json"
-set -- md2pdf browser.json
+cp uninstall.sh "$stage/uninstall.sh"
+set -- md2pdf browser.json uninstall.sh
 for notice in LICENSE THIRD_PARTY_NOTICES.md; do
   if [ -f "$notice" ]; then cp "$notice" "$stage/$notice"; set -- "$@" "$notice"; fi
 done

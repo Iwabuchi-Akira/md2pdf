@@ -59,7 +59,7 @@ pub fn executable() -> Result<PathBuf> {
         .join(&manifest.version)
         .join(&platform.executable);
     if !executable.is_file() {
-        bail!("専用Chromiumが未準備です。md2pdf setup を実行してください");
+        bail!("専用Chromiumが未準備です。./install.sh を再実行してください");
     }
     Ok(executable)
 }

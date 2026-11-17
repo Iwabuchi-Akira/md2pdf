@@ -150,15 +150,16 @@ actual=$(shasum -a 256 "$archive" | awk '{print $1}')
 # Only the flat files emitted by package-release.sh are accepted.
 tar -tzf "$archive" > "$work/contents" || die '配布ファイルを読み込めません。'
 while IFS= read -r entry; do
-  case "$entry" in md2pdf|browser.json|LICENSE|THIRD_PARTY_NOTICES.md) : ;; *) die "配布ファイル内の不正なパス: $entry" ;; esac
+  case "$entry" in md2pdf|browser.json|uninstall.sh|LICENSE|THIRD_PARTY_NOTICES.md) : ;; *) die "配布ファイル内の不正なパス: $entry" ;; esac
 done < "$work/contents"
 tar -tvzf "$archive" | awk 'substr($0, 1, 1) != "-" { exit 1 }' || die '配布ファイルには通常のファイルだけを含めてください。'
 mkdir "$work/unpack"
 tar -xzf "$archive" -C "$work/unpack"
-for required in md2pdf browser.json; do
+for required in md2pdf browser.json uninstall.sh; do
   [ -f "$work/unpack/$required" ] && [ ! -L "$work/unpack/$required" ] || die "配布ファイルに $required がありません。"
 done
 [ -x "$work/unpack/md2pdf" ] || die '実行ファイルの実行権限がありません。'
+[ -x "$work/unpack/uninstall.sh" ] || die 'uninstall.shの実行権限がありません。'
 
 mkdir -p "$bin_dir" "$data_dir"
 # Resolve aliases such as /tmp and /private/tmp before creating the command.
@@ -172,12 +173,13 @@ fi
 stage=$(mktemp -d "$data_dir/.install.XXXXXX")
 cp "$work/unpack/"* "$stage/"
 printf '専用ブラウザを準備しています…\n'
-MD2PDF_DATA_DIR="$data_dir" "$stage/md2pdf" setup || die '専用ブラウザの準備に失敗しました。既存のコマンドは変更していません。'
+MD2PDF_DATA_DIR="$data_dir" "$stage/md2pdf" __install-browser || die '専用ブラウザの準備に失敗しました。既存のコマンドは変更していません。'
 MD2PDF_DATA_DIR="$data_dir" "$stage/md2pdf" __install-record "$command_path" > "$stage/.md2pdf-install" || die 'インストール記録を作成できませんでした。'
 
 link_stage=$bin_dir/.md2pdf-link.$$
 ln -s "$data_dir/md2pdf" "$link_stage"
 mv -f "$stage/browser.json" "$data_dir/browser.json"
+mv -f "$stage/uninstall.sh" "$data_dir/uninstall.sh"
 for notice in LICENSE THIRD_PARTY_NOTICES.md; do
   if [ -f "$stage/$notice" ]; then mv -f "$stage/$notice" "$data_dir/$notice"; fi
 done
@@ -185,6 +187,13 @@ mv -f "$stage/md2pdf" "$data_dir/md2pdf"
 mv -f "$stage/.md2pdf-install" "$data_dir/.md2pdf-install"
 mv -f "$link_stage" "$command_path"
 link_stage=
+
+case "${SHELL:-/bin/zsh}" in
+  */zsh)
+    "$data_dir/md2pdf" __install-completion ||
+      die '本体は設置済みですが、zsh補完を設定できませんでした。上のエラーを確認してinstall.shを再実行してください。'
+    ;;
+esac
 
 printf '\nインストールしました: %s\n' "$command_path"
 case ":${PATH:-}:" in

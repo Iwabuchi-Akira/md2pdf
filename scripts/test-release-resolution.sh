@@ -9,14 +9,15 @@ target=aarch64-apple-darwin
 cat > "$work/source/md2pdf" <<'EOF'
 #!/bin/sh
 case "${1:-}" in
-  setup) mkdir -p "$MD2PDF_DATA_DIR/browser" ;;
+  __install-browser) mkdir -p "$MD2PDF_DATA_DIR/browser" ;;
   __install-record) printf '{}\n' ;;
 esac
 EOF
 chmod +x "$work/source/md2pdf"
+cp uninstall.sh "$work/source/uninstall.sh"
 printf '{}\n' > "$work/source/browser.json"
 archive=md2pdf-v0.1.0-$target.tar.gz
-COPYFILE_DISABLE=1 tar -czf "$work/assets/$archive" -C "$work/source" md2pdf browser.json
+COPYFILE_DISABLE=1 tar -czf "$work/assets/$archive" -C "$work/source" md2pdf browser.json uninstall.sh
 (cd "$work/assets" && shasum -a 256 "$archive" > SHA256SUMS)
 cat > "$work/mock-bin/curl" <<'EOF'
 #!/bin/sh

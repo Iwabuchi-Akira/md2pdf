@@ -8,7 +8,7 @@ mkdir -p "$work/source" "$work/archives"
 target=aarch64-apple-darwin
 cat > "$work/source/md2pdf" <<'EOF'
 #!/bin/sh
-if [ "${1:-}" = setup ]; then
+if [ "${1:-}" = __install-browser ]; then
   test -n "${MD2PDF_DATA_DIR:-}"
   test "${MOCK_SETUP_FAIL:-0}" = 0 || exit 1
   mkdir -p "$MD2PDF_DATA_DIR/browser/test-version"
@@ -18,9 +18,10 @@ else
 fi
 EOF
 chmod +x "$work/source/md2pdf"
+cp uninstall.sh "$work/source/uninstall.sh"
 printf '{}\n' > "$work/source/browser.json"
 archive=$work/archives/md2pdf-v0.1.0-$target.tar.gz
-COPYFILE_DISABLE=1 tar -czf "$archive" -C "$work/source" md2pdf browser.json
+COPYFILE_DISABLE=1 tar -czf "$archive" -C "$work/source" md2pdf browser.json uninstall.sh
 (cd "$work/archives" && shasum -a 256 "$(basename "$archive")" > SHA256SUMS)
 # Deliberately exclude the user's existing md2pdf command from PATH.
 PATH=/usr/bin:/bin:/usr/sbin:/sbin
@@ -28,6 +29,7 @@ export PATH
 prefix=$work/install
 ./install.sh --prefix "$prefix" --archive "$archive" > "$work/install.log"
 test -L "$prefix/bin/md2pdf"
+test -x "$prefix/share/md2pdf/uninstall.sh"
 test -f "$prefix/share/md2pdf/browser/test-version/ready"
 test "$("$prefix/bin/md2pdf" --version)" = 'md2pdf 0.1.0'
 
