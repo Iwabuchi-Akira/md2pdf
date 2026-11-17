@@ -158,11 +158,14 @@ bin_dir=$(cd "$bin_dir" && pwd -P)
 data_dir=$(cd "$data_dir" && pwd -P)
 command_path=$bin_dir/md2pdf
 [ "$bin_dir" != "$data_dir" ] || die '--bin-dir と --data-dir は別のフォルダを指定してください。'
-printf 'md2pdf installer\n' > "$data_dir/.md2pdf-install"
+if [ ! -f "$data_dir/.md2pdf-install" ]; then
+  printf 'md2pdf installer\n' > "$data_dir/.md2pdf-install"
+fi
 stage=$(mktemp -d "$data_dir/.install.XXXXXX")
 cp "$work/unpack/"* "$stage/"
 printf '専用ブラウザを準備しています…\n'
 MD2PDF_DATA_DIR="$data_dir" "$stage/md2pdf" setup || die '専用ブラウザの準備に失敗しました。既存のコマンドは変更していません。'
+MD2PDF_DATA_DIR="$data_dir" "$stage/md2pdf" __install-record "$command_path" > "$stage/.md2pdf-install" || die 'インストール記録を作成できませんでした。'
 
 link_stage=$bin_dir/.md2pdf-link.$$
 ln -s "$data_dir/md2pdf" "$link_stage"
@@ -171,6 +174,7 @@ for notice in LICENSE THIRD_PARTY_NOTICES.md; do
   if [ -f "$stage/$notice" ]; then mv -f "$stage/$notice" "$data_dir/$notice"; fi
 done
 mv -f "$stage/md2pdf" "$data_dir/md2pdf"
+mv -f "$stage/.md2pdf-install" "$data_dir/.md2pdf-install"
 mv -f "$link_stage" "$command_path"
 link_stage=
 

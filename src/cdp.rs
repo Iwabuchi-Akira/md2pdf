@@ -21,8 +21,8 @@ pub struct Browser {
 }
 
 impl Browser {
-    pub fn launch(executable: &Path) -> Result<Self> {
-        let profile = tempfile::tempdir()?;
+    pub fn launch(executable: &Path, temp_root: &Path) -> Result<Self> {
+        let profile = tempfile::tempdir_in(temp_root)?;
         let log = fs::File::create(profile.path().join("browser.log"))?;
         let child = Command::new(executable)
             .arg("--headless")

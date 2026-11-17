@@ -90,14 +90,20 @@ PDFの生成日時などの内部情報も変わるため、互換性はペー�
 特定バージョンは `./install.sh --version v0.1.0` のように指定します。
 専用Chromiumは必要なバージョンが準備済みなら再ダウンロードしません。
 
-標準配置から削除する場合は、このツールの設置先であることを確認してから次を実行します。
+コマンドからアンインストールできます。削除前に対象だけ確認することもできます。
 
 ```sh
-rm "$HOME/.local/bin/md2pdf"
-rm -r "$HOME/.local/share/md2pdf"
+md2pdf uninstall --dry-run
+md2pdf uninstall
 ```
 
-保存済みのPDFや入力Markdownは設置先の外にあるため、そのまま残ります。
+設置したコマンド、本体、ライセンス・管理情報、専用Chromium（全バージョンとキャッシュ）、
+変換用の一時ファイルを削除します。カスタム設置先と、更新前に設置したコマンドの場所も記録して削除します。
+変換用一時ファイルは専用の設置先内で管理し、途中終了で残った分もアンインストールの対象にします。
+
+入力Markdown、生成したPDF、ダウンロードしたリポジトリや配布アーカイブは利用者のファイルとして残します。
+専用フォルダに別のファイルを置いた場合も、それは削除しません。PATHを手動で設定した場合、
+共有のPATH設定や親フォルダは変更しません。
 
 ## 開発・ローカル検証
 
@@ -109,6 +115,7 @@ cargo clippy --locked --all-targets -- -D warnings
 ./scripts/test-install.sh
 cargo build --release --locked --target aarch64-apple-darwin
 ./scripts/package-release.sh aarch64-apple-darwin
+./scripts/test-uninstall.sh target/aarch64-apple-darwin/release/md2pdf
 ```
 
 Intel Macではターゲットを `x86_64-apple-darwin` に置き換えます。

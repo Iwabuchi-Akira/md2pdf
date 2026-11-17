@@ -1,5 +1,6 @@
 mod browser;
 mod cdp;
+mod install;
 
 use anyhow::{Context, Result, bail};
 use base64::Engine;
@@ -21,6 +22,7 @@ const USAGE: &str = "使い方:
   md2pdf <Markdownファイル> [別のファイル ...]
   md2pdf <Markdownファイル> -o <保存先.pdf>
   md2pdf setup
+  md2pdf uninstall [--dry-run]
 
 元のMarkdownと同じ場所にPDFを保存します。同名PDFは上書きします。
 -o / --output は1ファイルの変換時に指定できます。
@@ -157,11 +159,13 @@ fn scaffold(file: &Path, assets: &Path) -> Result<String> {
 
 fn convert(mut jobs: Vec<Job>) -> Result<()> {
     let executable = browser::executable()?;
-    let temporary = tempfile::tempdir()?;
+    let temp_root = browser::data_dir()?.join("tmp");
+    fs::create_dir_all(&temp_root)?;
+    let temporary = tempfile::tempdir_in(&temp_root)?;
     let assets = temporary.path().join("assets");
     fs::create_dir(&assets)?;
     ASSETS.extract(&assets)?;
-    let mut browser = cdp::Browser::launch(&executable)?;
+    let mut browser = cdp::Browser::launch(&executable, temporary.path())?;
     let mut targets = serde_json::Map::new();
     for job in &jobs {
         targets.insert(file_url(&job.file)?, json!(file_url(&job.target)?));
@@ -224,6 +228,19 @@ fn run() -> Result<()> {
     if args.len() == 1 && (args[0] == "--version" || args[0] == "-V") {
         println!("md2pdf {}", env!("CARGO_PKG_VERSION"));
         return Ok(());
+    }
+    if args.first().is_some_and(|arg| arg == "__install-record") {
+        if args.len() != 2 {
+            bail!("インストール記録の引数が不正です");
+        }
+        return install::record(Path::new(&args[1]));
+    }
+    if args.first().is_some_and(|arg| arg == "uninstall") {
+        let dry_run = args.len() == 2 && args[1] == "--dry-run";
+        if args.len() != 1 && !dry_run {
+            bail!("使い方: md2pdf uninstall [--dry-run]");
+        }
+        return install::uninstall(dry_run);
     }
     if args.first().is_some_and(|arg| arg == "setup") {
         if args.len() != 1 {

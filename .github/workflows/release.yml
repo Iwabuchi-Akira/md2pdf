@@ -36,6 +36,8 @@ jobs:
         run: ./scripts/test-install.sh
       - name: Build
         run: cargo build --release --locked --target "${{ matrix.target }}"
+      - name: Test uninstall
+        run: ./scripts/test-uninstall.sh target/${{ matrix.target }}/release/md2pdf
       - name: Test real PDF conversion
         env:
           MD2PDF_DATA_DIR: ${{ runner.temp }}/md2pdf-browser
