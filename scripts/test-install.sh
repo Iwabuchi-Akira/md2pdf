@@ -5,7 +5,7 @@ cd "$(dirname "$0")/.."
 work=$(mktemp -d "${TMPDIR:-/tmp}/md2pdf-installer-test.XXXXXX")
 trap 'rm -rf "$work"' EXIT HUP INT TERM
 mkdir -p "$work/source" "$work/archives"
-case "$(uname -m)" in arm64|aarch64) target=aarch64-apple-darwin ;; *) target=x86_64-apple-darwin ;; esac
+target=aarch64-apple-darwin
 cat > "$work/source/md2pdf" <<'EOF'
 #!/bin/sh
 if [ "${1:-}" = setup ]; then
@@ -70,4 +70,17 @@ if ./install.sh --prefix "$work/tampered" --archive "$archive" > /dev/null 2>&1;
   printf 'FAIL: tampered archive was accepted\n' >&2; exit 1
 fi
 test ! -e "$work/tampered"
+
+# Reject Intel before downloads or installation directory creation.
+mkdir -p "$work/mock-bin"
+cat > "$work/mock-bin/uname" <<'EOF'
+#!/bin/sh
+case "$1" in -s) echo Darwin ;; -m) echo x86_64 ;; *) exit 1 ;; esac
+EOF
+chmod +x "$work/mock-bin/uname"
+if PATH="$work/mock-bin:$PATH" ./install.sh --prefix "$work/intel" > "$work/intel.log" 2>&1; then
+  printf 'FAIL: Intel installation was accepted\n' >&2; exit 1
+fi
+grep -q 'Intel Macには対応していません' "$work/intel.log"
+test ! -e "$work/intel"
 printf 'Installer checks passed.\n'

@@ -49,8 +49,7 @@ done
 [ "$(uname -s)" = Darwin ] || die 'このインストーラーはmacOS向けです。'
 case "$(uname -m)" in
   arm64|aarch64) target=aarch64-apple-darwin ;;
-  x86_64) target=x86_64-apple-darwin ;;
-  *) die '対応していないCPUです。' ;;
+  *) die 'Apple SiliconのmacOS（arm64）専用です。Intel Macには対応していません。' ;;
 esac
 prefix=$(absolute_path "$prefix")
 bin_dir=$(absolute_path "${bin_dir:-$prefix/bin}")

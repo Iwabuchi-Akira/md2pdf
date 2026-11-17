@@ -1,6 +1,7 @@
 # md2pdf
 
-日本語・数式・図表を含むMarkdownを、A4・ページ番号付きのPDFに変換するmacOS用CLIです。
+日本語・数式・図表を含むMarkdownを、A4・ページ番号付きのPDFに変換するApple Silicon搭載Mac専用CLIです。
+Intel Macには対応していません。
 ヒラギノを使った日本語の組版と、KaTeXによる数式の描画に対応します。
 
 本体はRust製です。利用者側でRust、Cargo、Node.js、Homebrewをインストールする必要はありません。
@@ -28,7 +29,7 @@ cd md2pdf
 ./install.sh
 ```
 
-Apple Silicon / Intelを自動判定し、GitHub Releasesから対応する本体を取得します。
+Apple Silicon搭載Macであることを確認し、GitHub Releasesから本体を取得します。
 本体と専用ChromiumのSHA256を検証してから設置します。ブラウザのダウンロードは約100MBです。
 専用ブラウザは普段使うChromeとは別に管理し、PDFの再現性のためバージョンを固定します。
 
@@ -122,7 +123,6 @@ cargo build --release --locked --target aarch64-apple-darwin
 ./scripts/test-uninstall.sh target/aarch64-apple-darwin/release/md2pdf
 ```
 
-Intel Macではターゲットを `x86_64-apple-darwin` に置き換えます。
 初回のダウンロードから含めて手元の配布ファイルを試す場合：
 
 ```sh
@@ -163,7 +163,7 @@ node scripts/test-conversion.cjs tmp/local-install/bin/md2pdf
 ## 配布する側の手順
 
 `Cargo.toml` のバージョンと同じ `vVERSION` タグをGitHubへpushすると、
-GitHub Actionsが両CPU版をビルドして、チェックサム付きのGitHub Releaseを作成します。
+GitHub ActionsがApple Silicon版をビルドして、チェックサム付きのGitHub Releaseを作成します。
 ワークフローを手動実行した場合はビルド確認だけを行い、Releaseは公開しません。
 実行ファイルをGit履歴へ入れる必要はありません。
 

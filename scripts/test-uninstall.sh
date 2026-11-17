@@ -10,10 +10,8 @@ mkdir -p "$work/source" "$work/archive" "$work/data/browser/151.0.7922.34"
 printf 'md2pdf installer\n' > "$work/data/.md2pdf-install"
 cp "$binary" "$work/source/md2pdf"
 cp assets/browser.json "$work/source/browser.json"
-case "$(uname -m)" in
-  arm64|aarch64) target=aarch64-apple-darwin; bundle=chrome-headless-shell-mac-arm64 ;;
-  *) target=x86_64-apple-darwin; bundle=chrome-headless-shell-mac-x64 ;;
-esac
+target=aarch64-apple-darwin
+bundle=chrome-headless-shell-mac-arm64
 # A version-only stub avoids networking; conversion itself is tested separately.
 mkdir -p "$work/data/browser/151.0.7922.34/$bundle"
 printf '#!/bin/sh\necho "Chromium 151.0.7922.34"\n' > "$work/data/browser/151.0.7922.34/$bundle/chrome-headless-shell"

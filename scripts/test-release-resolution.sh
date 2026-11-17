@@ -5,7 +5,7 @@ cd "$(dirname "$0")/.."
 work=$(mktemp -d "${TMPDIR:-/tmp}/md2pdf-release-test.XXXXXX")
 trap 'rm -rf "$work"' EXIT HUP INT TERM
 mkdir -p "$work/mock-bin" "$work/source" "$work/assets"
-case "$(uname -m)" in arm64|aarch64) target=aarch64-apple-darwin ;; *) target=x86_64-apple-darwin ;; esac
+target=aarch64-apple-darwin
 cat > "$work/source/md2pdf" <<'EOF'
 #!/bin/sh
 case "${1:-}" in

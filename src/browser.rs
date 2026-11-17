@@ -19,8 +19,7 @@ struct Platform {
 fn manifest() -> Result<(Manifest, String)> {
     let platform = match (env::consts::OS, env::consts::ARCH) {
         ("macos", "aarch64") => "aarch64-apple-darwin",
-        ("macos", "x86_64") => "x86_64-apple-darwin",
-        _ => bail!("現在はmacOS（Apple Silicon / Intel）のみ対応しています"),
+        _ => bail!("Apple SiliconのmacOS（arm64）専用です。Intel Macには対応していません"),
     };
     Ok((
         serde_json::from_str(include_str!("../assets/browser.json"))?,

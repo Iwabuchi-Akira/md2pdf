@@ -4,7 +4,7 @@ set -eu
 cd "$(dirname "$0")/.."
 [ "$#" -ge 1 ] && [ "$#" -le 2 ] || { printf 'Usage: %s TARGET [OUTPUT_DIR]\n' "$0" >&2; exit 1; }
 target=$1
-case "$target" in aarch64-apple-darwin|x86_64-apple-darwin) : ;; *) printf 'Unsupported target: %s\n' "$target" >&2; exit 1 ;; esac
+case "$target" in aarch64-apple-darwin) : ;; *) printf 'Apple Silicon macOS only. Unsupported target: %s\n' "$target" >&2; exit 1 ;; esac
 output=${2:-dist}
 case "$output" in /*) : ;; *) output=$PWD/$output ;; esac
 version=$(awk '/^\[package\]$/ { package = 1; next } /^\[/ { package = 0 } package && /^version[[:space:]]*=/ { gsub(/"/, "", $3); print $3; exit }' Cargo.toml)
