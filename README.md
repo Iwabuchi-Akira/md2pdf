@@ -11,6 +11,9 @@
 > 現在は初期実装です。以下の通常インストールには、管理者によるGitHub Releaseの作成が必要です。
 > 公開前に手元で試す手順は「開発・ローカル検証」を参照してください。
 
+`公開済みのGitHub Releaseがありません` と表示される場合、通常の自動ダウンロードはまだ利用できません。
+手元に作成済みの配布ファイルがある場合は `./install.sh --archive dist/配布ファイル名.tar.gz` で設置できます。
+
 GitHubの「Code → Download ZIP」でリポジトリを取得して展開し、そのフォルダで実行します。
 
 ```sh
@@ -113,6 +116,7 @@ md2pdf uninstall
 cargo test --locked
 cargo clippy --locked --all-targets -- -D warnings
 ./scripts/test-install.sh
+./scripts/test-release-resolution.sh
 cargo build --release --locked --target aarch64-apple-darwin
 ./scripts/package-release.sh aarch64-apple-darwin
 ./scripts/test-uninstall.sh target/aarch64-apple-darwin/release/md2pdf

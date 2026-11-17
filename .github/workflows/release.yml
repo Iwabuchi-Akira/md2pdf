@@ -33,7 +33,9 @@ jobs:
       - name: Test
         run: cargo test --locked --target "${{ matrix.target }}"
       - name: Test installer
-        run: ./scripts/test-install.sh
+        run: |
+          ./scripts/test-install.sh
+          ./scripts/test-release-resolution.sh
       - name: Build
         run: cargo build --release --locked --target "${{ matrix.target }}"
       - name: Test uninstall

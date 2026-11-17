@@ -110,9 +110,18 @@ else
   if [ "$release_version" = latest ]; then
     printf '最新の公開バージョンを確認しています…\n'
     resolved_url=$(curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' \
+      --connect-timeout 20 --max-time 60 \
       --output /dev/null --write-out '%{url_effective}' "https://github.com/$repository/releases/latest") ||
       die '公開済みのリリースを取得できませんでした。まだ未公開の場合は --archive でローカル配布ファイルを指定してください。'
-    release_version=${resolved_url##*/}
+    case "$resolved_url" in
+      https://github.com/*/*/releases/tag/*)
+        release_version=${resolved_url##*/}
+        ;;
+      https://github.com/*/*/releases|https://github.com/*/*/releases/)
+        die '公開済みのGitHub Releaseがありません。公開前は --archive dist/md2pdf-vVERSION-CPU.tar.gz で手元の配布ファイルを指定してください。'
+        ;;
+      *) die "最新リリースの転送先を確認できません: $resolved_url" ;;
+    esac
   fi
   case "$release_version" in v[0-9]*|[0-9]*) : ;; *) die 'バージョンは v0.1.0 のように指定してください。' ;; esac
   case "$release_version" in *[!A-Za-z0-9.+-]*) die 'バージョンに使えない文字が含まれています。' ;; esac
