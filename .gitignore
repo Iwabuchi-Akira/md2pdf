@@ -1,0 +1,10 @@
+/target/
+/tmp/
+/dist/
+/output/
+.DS_Store
+
+# Local environment settings must not be published.
+.env
+.env.*
+!.env.example

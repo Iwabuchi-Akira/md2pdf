@@ -1,0 +1,47 @@
+{
+  "fontFamilies": {
+    "standard": "Times",
+    "fixed": "Courier",
+    "serif": "Times",
+    "sansSerif": "Helvetica",
+    "cursive": "Apple Chancery",
+    "fantasy": "Papyrus"
+  },
+  "forScripts": [
+    {
+      "script": "jpan",
+      "fontFamilies": {
+        "standard": "Hiragino Kaku Gothic ProN",
+        "fixed": "Osaka-Mono",
+        "serif": "Hiragino Mincho ProN",
+        "sansSerif": "Hiragino Kaku Gothic ProN"
+      }
+    },
+    {
+      "script": "hang",
+      "fontFamilies": {
+        "standard": "Apple SD Gothic Neo",
+        "serif": "AppleMyungjo",
+        "sansSerif": "Apple SD Gothic Neo"
+      }
+    },
+    {
+      "script": "hans",
+      "fontFamilies": {
+        "standard": ",PingFang SC,STHeiti",
+        "serif": "Songti SC",
+        "sansSerif": ",PingFang SC,STHeiti",
+        "cursive": "Kaiti SC"
+      }
+    },
+    {
+      "script": "hant",
+      "fontFamilies": {
+        "standard": ",PingFang TC,Heiti TC",
+        "serif": "Songti TC",
+        "sansSerif": ",PingFang TC,Heiti TC",
+        "cursive": "Kaiti TC"
+      }
+    }
+  ]
+}

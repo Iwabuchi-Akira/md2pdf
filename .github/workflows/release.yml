@@ -1,0 +1,73 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            target: aarch64-apple-darwin
+          - runner: macos-15-intel
+            target: x86_64-apple-darwin
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        run: |
+          rustup toolchain install stable --profile minimal --target "${{ matrix.target }}"
+          rustup default stable
+      - name: Check tag matches Cargo version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          version=$(awk '/^\[package\]$/ { package = 1; next } /^\[/ { package = 0 } package && /^version[[:space:]]*=/ { gsub(/"/, "", $3); print $3; exit }' Cargo.toml)
+          test "$GITHUB_REF_NAME" = "v$version"
+      - name: Test
+        run: cargo test --locked --target "${{ matrix.target }}"
+      - name: Test installer
+        run: ./scripts/test-install.sh
+      - name: Build
+        run: cargo build --release --locked --target "${{ matrix.target }}"
+      - name: Test real PDF conversion
+        env:
+          MD2PDF_DATA_DIR: ${{ runner.temp }}/md2pdf-browser
+        run: |
+          ./target/${{ matrix.target }}/release/md2pdf setup
+          node scripts/test-conversion.cjs target/${{ matrix.target }}/release/md2pdf
+      - name: Package
+        run: ./scripts/package-release.sh "${{ matrix.target }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: md2pdf-${{ matrix.target }}
+          path: |
+            dist/*.tar.gz
+            dist/*.sha256
+          if-no-files-found: error
+
+  publish:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: md2pdf-*
+          merge-multiple: true
+          path: dist
+      - name: Combine checksums
+        run: cat dist/*.sha256 > dist/SHA256SUMS
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh release create "$GITHUB_REF_NAME" dist/*.tar.gz dist/SHA256SUMS --verify-tag --generate-notes
